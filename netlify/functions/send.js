@@ -1,42 +1,58 @@
 // netlify/functions/send.js
-exports.handler = async function (event, context) {
+
+export async function handler(event, context) {
   try {
-    const body = event.body ? JSON.parse(event.body) : {};
-    const firstName = body.firstName || '';
-    const lastName = body.lastName || '';
-    const phone = body.phone || '';
+    const { name, phone, email, message } = JSON.parse(event.body || "{}");
 
-    if (!firstName || !lastName || !phone) {
-      return { statusCode: 400, body: JSON.stringify({ ok: false, error: 'missing_fields' }) };
+    if (!name || !phone || !email || !message) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing required fields" })
+      };
     }
 
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID || '1931261316';
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+    const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-    if (!token) {
-      return { statusCode: 500, body: JSON.stringify({ ok: false, error: 'no_token_configured' }) };
+    if (!BOT_TOKEN || !CHAT_ID) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Bot token or chat ID not configured" })
+      };
     }
 
-    const text = `اطلاعات جدید:\nنام: ${firstName}\nنام خانوادگی: ${lastName}\nشماره: ${phone}`;
+    const text =
+      `New Form Submission:\n` +
+      `Name: ${name}\n` +
+      `Phone: ${phone}\n` +
+      `Email: ${email}\n` +
+      `Message: ${message}`;
 
-    // استفاده از global fetch (در Netlify / Node 18+ موجود است)
-    const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-    const res = await fetch(telegramUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text })
+    const telegramURL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+    const response = await fetch(telegramURL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: CHAT_ID, text })
     });
 
-    const result = await res.json();
+    const data = await response.json();
 
-    if (!result.ok) {
-      // بازگرداندن پاسخ تلگرام برای دیباگ (مثلاً chat not found, forbidden, etc)
-      return { statusCode: 502, body: JSON.stringify({ ok: false, telegram: result }) };
+    if (!data.ok) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: data })
+      };
     }
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true, telegram: result }) };
-
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true })
+    };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ ok: false, error: err.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
+    };
   }
-};
+}
